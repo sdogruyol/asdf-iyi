@@ -41,7 +41,8 @@ mise use -g iyi@0.21.0
 mise exec -- iyi version
 ```
 
-The equivalent `mise.toml` entry is:
+The equivalent `mise.toml` entry, once the plugin is installed on the machine,
+is:
 
 ```toml
 [tools]
