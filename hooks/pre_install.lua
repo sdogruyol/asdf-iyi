@@ -1,5 +1,4 @@
 local http = require("http")
-local json = require("json")
 local iyi = require("iyi")
 local log = require("log")
 
@@ -18,50 +17,30 @@ function PLUGIN:PreInstall(ctx)
         return { version = version }
     end
 
+    if not iyi.supports(version, target) then
+        error("iyi " .. version .. " has no release for " .. target)
+    end
+
     local filename = "iyi-" .. version .. "-" .. target .. "." .. ext
     local dir = iyi.downloads .. "/v" .. version
 
-    -- Look the release up first, so a missing platform archive says so
-    -- instead of failing later with an opaque HTTP 404.
-    local resp, err = http.get({ url = iyi.api .. "/releases/tags/v" .. version })
-    if err ~= nil then
-        error("failed to fetch iyi " .. version .. ": " .. err)
-    end
-    if resp.status_code == 404 then
-        error("iyi " .. version .. " is not a published release")
-    elseif resp.status_code ~= 200 then
-        error("GitHub API returned " .. resp.status_code .. ": " .. resp.body)
-    end
-
-    local release = json.decode(resp.body)
-    local asset = iyi.find_asset(release, filename)
-    if asset == nil then
-        error("iyi " .. version .. " has no " .. filename .. " for this platform")
-    end
-
-    -- The GitHub API exposes the asset digest; fall back to the release's
-    -- SHA256SUMS for releases that predate it. Releases before 0.12.0
-    -- published neither, and are installed unverified with a warning.
+    -- Releases from 0.12.0 on publish SHA256SUMS. A file line missing for this
+    -- platform means the release has no archive for it; a checksum that does
+    -- arrive is returned to mise, which verifies the download.
     local sha256 = nil
-    if asset.digest ~= nil then
-        sha256 = asset.digest:match("^sha256:(%x+)$")
+    local sums, sums_err = http.get({ url = dir .. "/SHA256SUMS" })
+    if sums_err ~= nil then
+        error("failed to fetch SHA256SUMS for iyi " .. version .. ": " .. sums_err)
     end
-
-    if sha256 == nil then
-        local sums, sums_err = http.get({ url = dir .. "/SHA256SUMS" })
-        if sums_err ~= nil then
-            error("failed to fetch SHA256SUMS for iyi " .. version .. ": " .. sums_err)
+    if sums.status_code == 200 then
+        sha256 = iyi.find_checksum(sums.body, filename)
+        if sha256 == nil then
+            error("iyi " .. version .. " has no " .. filename .. " for " .. target)
         end
-        if sums.status_code == 200 then
-            sha256 = iyi.find_checksum(sums.body, filename)
-            if sha256 == nil then
-                error("SHA256SUMS for iyi " .. version .. " has no entry for " .. filename)
-            end
-        elseif sums.status_code == 404 and iyi.version_lt(version, "0.12.0") then
-            log.warn("iyi " .. version .. " publishes no SHA256SUMS; the download is not verified")
-        else
-            error("could not fetch " .. dir .. "/SHA256SUMS (HTTP " .. sums.status_code .. ")")
-        end
+    elseif sums.status_code == 404 and iyi.version_lt(version, "0.12.0") then
+        log.warn("iyi " .. version .. " publishes no SHA256SUMS; the download is not verified")
+    else
+        error("could not fetch " .. dir .. "/SHA256SUMS (HTTP " .. sums.status_code .. "): iyi " .. version .. " may not be published")
     end
 
     return {

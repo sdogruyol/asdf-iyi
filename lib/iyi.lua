@@ -2,12 +2,21 @@
 
 local M = {}
 
-M.api = "https://api.github.com/repos/iyilang/iyi"
+-- Git's smart-HTTP ref advertisement. Unlike the GitHub API this needs no
+-- token and is not subject to the unauthenticated request limit.
+M.refs = "https://github.com/iyilang/iyi.git/info/refs?service=git-upload-pack"
 M.downloads = "https://github.com/iyilang/iyi/releases/download"
 
 -- iyi publishes a compiler for these targets only.
 local OS_NAMES = { linux = "linux", darwin = "darwin", windows = "windows" }
 local ARCH_NAMES = { amd64 = "x86_64", arm64 = "arm64" }
+
+-- The first release that carries an archive for each target. Linux has had
+-- an x86_64 archive since 0.1.0.
+local FIRST_RELEASE = {
+    ["darwin-arm64"] = "0.5.1",
+    ["windows-x86_64"] = "0.14.0",
+}
 
 -- Returns the release target ("linux-x86_64", ...) and archive extension,
 -- or nil when iyi does not publish a compiler for this platform. RUNTIME
@@ -60,15 +69,6 @@ function M.normalize(tag)
     return nil
 end
 
-function M.find_asset(release, name)
-    for _, asset in ipairs(release.assets or {}) do
-        if asset.name == name then
-            return asset
-        end
-    end
-    return nil
-end
-
 -- Find one file's SHA-256 in a SHA256SUMS body. Compare names exactly:
 -- "." and "-" are pattern characters, so line:match(filename) is not exact.
 function M.find_checksum(body, filename)
@@ -101,6 +101,15 @@ function M.version_lt(a, b)
         end
     end
     return false
+end
+
+-- True when this release has an archive for this target.
+function M.supports(version, target)
+    local first = FIRST_RELEASE[target]
+    if first == nil then
+        return true
+    end
+    return not M.version_lt(version, first)
 end
 
 return M

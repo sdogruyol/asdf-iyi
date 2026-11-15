@@ -1,39 +1,36 @@
 local http = require("http")
-local json = require("json")
 local iyi = require("iyi")
 
--- Newest first, as the GitHub releases API returns them. mise reverses the
--- list into its oldest-first order. Only releases with an archive for this
--- platform are listed, so `mise ls-remote` never offers a version that would
--- 404 on this machine.
+-- The oldest release with an archive for this platform is filtered out here,
+-- so `mise ls-remote` never offers a version that would 404 on this machine.
+-- The ref advertisement is newest-last, so sort explicitly.
 function PLUGIN:Available(ctx)
-    local resp, err = http.get({ url = iyi.api .. "/releases?per_page=100" })
+    local resp, err = http.get({ url = iyi.refs })
     if err ~= nil then
-        error("failed to fetch iyi releases: " .. err)
+        error("failed to fetch iyi tags: " .. err)
     end
     if resp.status_code ~= 200 then
-        error("GitHub API returned " .. resp.status_code .. ": " .. resp.body)
+        error("fetching iyi tags failed: HTTP " .. resp.status_code)
     end
 
-    local releases = json.decode(resp.body)
-    local target, ext = iyi.host_target()
-    local result = {}
+    local target = iyi.host_target()
+    local result, seen = {}, {}
 
-    for _, release in ipairs(releases) do
-        local version = iyi.normalize(release.tag_name)
-        if version ~= nil and not release.draft and not release.prerelease then
-            local filename = "iyi-" .. version .. "-" .. target .. "." .. ext
-            if iyi.find_asset(release, filename) ~= nil then
-                table.insert(result, {
-                    version = version,
-                    created_at = release.published_at,
-                })
-            end
+    for tag in resp.body:gmatch("refs/tags/(v?%d+%.%d+%.%d+)") do
+        local version = iyi.normalize(tag)
+        if version ~= nil and seen[version] == nil and iyi.supports(version, target) then
+            seen[version] = true
+            table.insert(result, { version = version })
         end
     end
 
     if #result == 0 then
         error("no iyi releases found for " .. target)
     end
+
+    -- Available returns newest first; mise reverses it into its own order.
+    table.sort(result, function(a, b)
+        return iyi.version_lt(b.version, a.version)
+    end)
     return result
 end

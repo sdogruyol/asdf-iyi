@@ -125,11 +125,11 @@ asdf (`bin/`):
 
 mise (`metadata.lua`, `hooks/`):
 
-- `hooks/available.lua` reads the GitHub releases API and returns the versions
-  with an archive for the current platform.
-- `hooks/pre_install.lua` returns the archive URL and its SHA-256, taken from
-  the release asset digest or `SHA256SUMS`; mise downloads, verifies and
-  extracts it.
+- `hooks/available.lua` reads Git's smart-HTTP ref advertisement — no GitHub
+  API, token, or rate limit — and returns the versions with an archive for the
+  current platform.
+- `hooks/pre_install.lua` returns the archive URL and the SHA-256 from the
+  release's `SHA256SUMS`; mise downloads, verifies and extracts it.
 - `hooks/env_keys.lua` puts the installed `bin` directory on `PATH`.
 
 The archive is installed whole because iyi finds its prelude, stdlib and
