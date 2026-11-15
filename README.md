@@ -16,9 +16,9 @@ unpacked.
 | macOS   | arm64 (14.4+)         | `iyi-<version>-darwin-arm64.tar.gz` |
 | Windows | x86_64                | `iyi-<version>-windows-x86_64.zip`  |
 
-A platform with no release is refused at install time. iyi 0.12.0 and earlier
-published no `SHA256SUMS`; those versions install with a warning, and the
-release files are still fetched over HTTPS.
+A platform with no release is refused at install time. iyi releases before
+0.12.0 published no `SHA256SUMS`; those versions install with a warning, and
+the release files are still fetched over HTTPS.
 
 Windows is not an officially supported asdf platform, and mise does not run
 asdf plugins there. The plugin still recognizes Windows and installs the zip
