@@ -1,0 +1,44 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  asdf:
+    name: asdf (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: asdf-vm/actions/plugin-test@v4
+        with:
+          command: iyi version
+
+  mise:
+    name: mise (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    env:
+      MISE_YES: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v5
+        with:
+          install: false
+      - name: Install the plugin from this checkout
+        run: mise plugins install iyi "file://$GITHUB_WORKSPACE"
+      - name: Install iyi
+        run: mise install iyi@latest
+      - name: Run iyi
+        run: mise exec iyi@latest -- iyi version

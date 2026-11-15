@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Install the already-downloaded iyi release into $ASDF_INSTALL_PATH.
+#
+# The whole archive is kept together: iyi finds its prelude, stdlib and
+# Crystal library beside the executable (bin/../share/iyi), so moving only the
+# binary would break it.
+set -euo pipefail
+
+plugin_dir="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=../lib/utils.bash
+. "$plugin_dir/lib/utils.bash"
+
+: "${ASDF_INSTALL_VERSION:?ASDF_INSTALL_VERSION is not set}"
+: "${ASDF_INSTALL_PATH:?ASDF_INSTALL_PATH is not set}"
+
+[ "${ASDF_INSTALL_TYPE:-version}" = version ] ||
+  fail "only released versions are supported, not ASDF_INSTALL_TYPE=$ASDF_INSTALL_TYPE"
+
+version="$(normalize_version "$ASDF_INSTALL_VERSION")"
+iyi_target "$version"
+binary="$(iyi_binary)"
+
+source="${ASDF_DOWNLOAD_PATH:-}"
+[ -n "$source" ] || fail "ASDF_DOWNLOAD_PATH is not set: bin/download must run before bin/install"
+[ -f "$source/bin/$binary" ] || fail "$source does not contain bin/$binary"
+
+mkdir -p "$ASDF_INSTALL_PATH"
+cp -R "$source"/. "$ASDF_INSTALL_PATH"/
+chmod +x "$ASDF_INSTALL_PATH/bin/$binary"
+
+# A successful copy is not a working compiler. Run it once; on failure leave
+# nothing installed, so a retry does not look like a completed install.
+if ! "$ASDF_INSTALL_PATH/bin/$binary" version >/dev/null 2>&1; then
+  rm -rf "$ASDF_INSTALL_PATH"
+  fail "iyi $version does not run from $ASDF_INSTALL_PATH; check that this platform is supported"
+fi
+
+printf 'asdf-iyi: installed iyi %s to %s\n' "$version" "$ASDF_INSTALL_PATH" >&2

@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Download and verify an iyi release archive into $ASDF_DOWNLOAD_PATH.
+#
+# The archive is unpacked, not kept: asdf expects the decompressed release
+# there. Nothing is written to the download path until the checksum matches.
+set -euo pipefail
+
+plugin_dir="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=../lib/utils.bash
+. "$plugin_dir/lib/utils.bash"
+
+: "${ASDF_INSTALL_VERSION:?ASDF_INSTALL_VERSION is not set}"
+: "${ASDF_DOWNLOAD_PATH:?ASDF_DOWNLOAD_PATH is not set}"
+
+[ "${ASDF_INSTALL_TYPE:-version}" = version ] ||
+  fail "only released versions are supported, not ASDF_INSTALL_TYPE=$ASDF_INSTALL_TYPE"
+
+command -v curl >/dev/null 2>&1 || fail "curl is required"
+
+version="$(normalize_version "$ASDF_INSTALL_VERSION")"
+iyi_target "$version"
+asset="$(iyi_asset "$version")"
+base="$(iyi_release_base "$version")"
+
+tmp="$(mktemp -d "$(dirname "$ASDF_DOWNLOAD_PATH")/asdf-iyi.XXXXXX")"
+trap 'rm -rf "$tmp"' EXIT
+
+printf 'asdf-iyi: downloading iyi %s (%s)\n' "$version" "$IYI_TARGET" >&2
+iyi_fetch "$base/$asset" --progress-bar -o "$tmp/$asset" ||
+  fail "could not download $base/$asset"
+
+# Releases from 0.12.0 on publish SHA256SUMS, and one that does not arrive is
+# refused rather than installed unverified. Older releases published none, and
+# that is said rather than passed over.
+if iyi_fetch "$base/SHA256SUMS" -o "$tmp/SHA256SUMS" 2>/dev/null; then
+  iyi_verify "$tmp/$asset" "$tmp/SHA256SUMS"
+elif version_lt "$version" 0.12.0; then
+  printf 'asdf-iyi: note: iyi %s publishes no SHA256SUMS; the archive was not verified\n' "$version" >&2
+else
+  fail "could not fetch $base/SHA256SUMS; refusing to install an unverified archive"
+fi
+
+staging="$tmp/staging"
+mkdir -p "$staging"
+case "$IYI_EXT" in
+  tar.gz)
+    command -v tar >/dev/null 2>&1 || fail "tar is required"
+    tar -xzf "$tmp/$asset" -C "$staging" || fail "could not extract $asset"
+    ;;
+  zip)
+    command -v unzip >/dev/null 2>&1 || fail "unzip is required on Windows"
+    unzip -q "$tmp/$asset" -d "$staging" || fail "could not extract $asset"
+    ;;
+esac
+
+binary="$(iyi_binary)"
+[ -f "$staging/bin/$binary" ] || fail "$asset does not contain bin/$binary"
+
+mkdir -p "$ASDF_DOWNLOAD_PATH"
+cp -R "$staging"/. "$ASDF_DOWNLOAD_PATH"/

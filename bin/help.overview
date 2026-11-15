@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cat <<'EOF'
+iyi is a fast, compiled programming language for people and their AI agents:
+compatible with Crystal, native through LLVM, and quick to rebuild.
+
+This plugin installs the official, checksum-verified release archives from
+github.com/iyilang/iyi. Nothing is built from source.
+EOF

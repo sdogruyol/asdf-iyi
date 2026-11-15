@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cat <<'EOF'
+Website: https://iyi.dev
+Install: https://iyi.dev/install/
+Source: https://github.com/iyilang/iyi
+Releases: https://github.com/iyilang/iyi/releases
+EOF

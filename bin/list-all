@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# List every released iyi version, oldest first (asdf prints them in order).
+set -euo pipefail
+
+plugin_dir="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=../lib/utils.bash
+. "$plugin_dir/lib/utils.bash"
+
+iyi_versions | awk 'NR > 1 { printf " " } { printf "%s", $0 } END { print "" }'
