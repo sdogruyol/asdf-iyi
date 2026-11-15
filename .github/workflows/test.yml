@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     env:
       MISE_YES: 1
     steps:
@@ -37,7 +37,14 @@ jobs:
         with:
           install: false
       - name: Install the plugin from this checkout
-        run: mise plugins install iyi "file://$GITHUB_WORKSPACE"
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            url="file:///$GITHUB_WORKSPACE"
+          else
+            url="file://$GITHUB_WORKSPACE"
+          fi
+          mise plugins install vfox:iyi "$url"
       - name: Install iyi
         run: mise install iyi@latest
       - name: Run iyi
